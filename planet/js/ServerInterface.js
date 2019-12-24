@@ -10,72 +10,111 @@
 // Foundation, 51 Franklin Street, Suite 500 Boston, MA 02110-1335 USA
 
 function ServerInterface(Planet) {
-    this.ServerURL = 'https://musicblocks.sugarlabs.org/planet-server/index.php';
-    this.ConnectionFailureData = {'success': false, 'error': 'ERROR_CONNECTION_FAILURE'};
-    this.APIKey = '3f2d3a4c-c7a4-4c3c-892e-ac43784f7381';
+    this.ServerHostname = "http://localhost:2020";
+    this.ConnectionFailureData = {
+        success: false,
+        error: "ERROR_CONNECTION_FAILURE"
+    };
+    this.APIKey = "3f2d3a4c-c7a4-4c3c-892e-ac43784f7381";
 
-    this.request = function(data, callback) {
-        var that = this;
-        data['api-key'] = this.APIKey;
-
-        var req = jQuery.ajax({
-            type: 'POST',
-            url: this.ServerURL,
-            data: data
-        })
-            .done(function(data) {
-                callback(data);
-            })
-            .fail(function() {
-                callback(that.ConnectionFailureData);
-            });
+    this.GET = function (api_request_name, params, callback) {
+        let searchParams = new URLSearchParams(params);
+        jQuery.ajax({
+            url: `${this.ServerHostname}/${api_request_name}?${searchParams}`,
+            type: "GET",
+            timeout: 0,
+            processData: false,
+            mimeType: "application/x-www-form-urlencoded",
+            contentType: false,
+            success: result => callback(JSON.parse(result)),
+            error: _ => callback(this.ConnectionFailureData)
+        });
     };
 
-    this.getTagManifest = function(callback) {
-        var obj = {'action': 'getTagManifest'};
-        this.request(obj, callback);
+    this.POST = function (api_request_name, data, callback) {
+        let form = new URLSearchParams();
+        Object.keys(data).forEach(key => {
+            if (typeof data[key] === "object") data[key] = JSON.stringify(data[key]);
+            form.append(key, data[key]);
+        });
+        jQuery.ajax({
+            url: `${this.ServerHostname}/${api_request_name}`,
+            method: "POST",
+            timeout: 0,
+            processData: false,
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            contentType: false,
+            data: form,
+            success: callback,
+            error: _ => callback(this.ConnectionFailureData)
+        });
+    };
+    this.getTagManifest = function (callback) {
+        this.GET("api/tags", "", callback);
     };
 
-    this.addProject = function(data, callback) {
-        var obj = {'action': 'addProject', 'ProjectJSON': data};
-        this.request(obj, callback);
+    this.addProject = function (data, callback) {
+        this.POST("api/project", JSON.parse(data), callback);
     };
 
-    this.downloadProjectList = function(ProjectTags, ProjectSort, Start, End, callback) {
-        var obj = {'action': 'downloadProjectList', 'ProjectTags': ProjectTags, 'ProjectSort': ProjectSort, 'Start': Start, 'End': End};
-        this.request(obj, callback);
+    this.downloadProjectList = function (
+        ProjectTags,
+        ProjectSort,
+        Start,
+        End,
+        callback
+    ) {
+        this.GET(
+            "api/project/search",
+            {
+                tags: ProjectTags,
+                sort: ProjectSort,
+                start: Start,
+                end: End
+            },
+            callback
+        );
     };
 
-    this.getProjectDetails = function(ProjectID, callback) {
-        var obj = {'action': 'getProjectDetails', 'ProjectID': ProjectID};
-        this.request(obj, callback);
+    this.getProjectDetails = function (ProjectID, callback) {
+        this.GET(`api/project/${ProjectID}`, "", callback);
     };
 
-    this.searchProjects = function(Search, ProjectSort, Start, End, callback) {
-        var obj = {'action': 'searchProjects', 'Search': Search, 'ProjectSort': ProjectSort, 'Start': Start, 'End': End};
-        this.request(obj, callback);
+    this.searchProjects = function (Search, ProjectSort, Start, End, callback) {
+        this.GET(
+            "api/project/search",
+            {
+                query: Search,
+                sort: ProjectSort,
+                start: Start,
+                end: End
+            },
+            callback
+        );
     };
 
-    this.downloadProject = function(ProjectID, callback) {
-        var obj = {'action': 'downloadProject', 'ProjectID': ProjectID};
-        this.request(obj, callback);
+    this.downloadProject = function (ProjectID, callback) {
+        this.GET(`api/project/${ProjectID}/download`, "", callback);
     };
 
-    this.likeProject = function(ProjectID, Like, callback) {
-        var obj = {'action': 'likeProject', 'ProjectID': ProjectID, 'Like': ((Like) ? 'true' : 'false')};
-        this.request(obj, callback);
+    this.likeProject = function (ProjectID, Like, callback) {
+        this.POST(`api/project/${ProjectID}/like/${Like ? 1 : 0}`, {}, callback);
     };
 
-    this.reportProject = function(ProjectID, Description, callback) {
-        var obj = {'action': 'reportProject', 'ProjectID': ProjectID, 'Description': Description};
-        this.request(obj, callback);
+    this.reportProject = function (ProjectID, Description, callback) {
+        this.POST(
+            `api/project/${ProjectID}/report`,
+            {reason: Description},
+            callback
+        );
     };
 
-    this.convertFile = function(From, To, Data, callback) {
-        var obj = {'action': 'convertData', 'From': From, 'To': To, 'Data': Data};
-        this.request(obj, callback);
+    this.convertFile = function (From, To, Data, callback) {
+        this.POST(`api/convertData/${From}/${To}`, {data: Data}, callback);
     };
 
-    this.init = function() {
+    this.init = function () {
     };
-};
+}
