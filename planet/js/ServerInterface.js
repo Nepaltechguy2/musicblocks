@@ -23,6 +23,9 @@ function ServerInterface(Planet) {
             url: `${this.ServerHostname}/${api_request_name}?${searchParams}`,
             type: "GET",
             timeout: 0,
+            headers: {
+                "Authorization": "Bearer " + localStorage.getItem("token")
+            },
             processData: false,
             mimeType: "application/x-www-form-urlencoded",
             contentType: false,
@@ -43,11 +46,17 @@ function ServerInterface(Planet) {
             timeout: 0,
             processData: false,
             headers: {
-                "Content-Type": "application/x-www-form-urlencoded"
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Authorization": "Bearer " + localStorage.getItem("token")
             },
             contentType: false,
             data: form,
-            success: callback,
+            success: data => {
+                if(data.token){
+                    localStorage.setItem("token", data.token)
+                }
+                callback(data)
+            },
             error: _ => callback(this.ConnectionFailureData)
         });
     };
@@ -55,8 +64,30 @@ function ServerInterface(Planet) {
         this.GET("api/tags", "", callback);
     };
 
-    this.addProject = function (data, callback) {
-        this.POST("api/project", JSON.parse(data), callback);
+    this.addProject = function (data, userInfo, callback) {
+        // first, see if TRIED to login.
+        if (userInfo)
+            this.GET("api/user/info", {}, user => {
+                if (user.success) {
+                    console.debug("Logged in, adding project.");
+                    this.POST("api/project", JSON.parse(data), callback);
+                } else {
+                    console.debug("Not logged in, creating user...");
+                    this.POST("api/user/create", userInfo, createUserResult => {
+                        if (createUserResult.success) {
+                            localStorage.setItem("username", userInfo.username);
+                            console.debug("Created user. Adding Project");
+                            this.POST("api/project", JSON.parse(data), callback);
+                        } else {
+                            callback(createUserResult);
+                        }
+                    });
+                }
+            });
+        else {
+            this.POST("api/project", JSON.parse(data), callback);
+        }
+
     };
 
     this.downloadProjectList = function (
@@ -113,6 +144,18 @@ function ServerInterface(Planet) {
 
     this.convertFile = function (From, To, Data, callback) {
         this.POST(`api/convertData/${From}/${To}`, {data: Data}, callback);
+    };
+
+    this.searchGroups = function (searchVal, callback) {
+        this.GET("api/groups", {},result => {
+            let rslt = {};
+            result.data.forEach(obj => rslt[obj.name] = null);
+            callback(rslt);
+        });
+    };
+
+    this.getLoggedInValues = function(callback) {
+        this.GET("api/user/info", {}, callback);
     };
 
     this.init = function () {

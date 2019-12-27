@@ -125,6 +125,32 @@ function Publisher(Planet) {
             document.getElementById('publisher-ptitle').textContent = _('Publish Project');
         }
 
+        window.groupInput = $("#publish-group");
+        Planet.ServerInterface.searchGroups(groupInput.val(), data => {
+            groupInput.autocomplete({data: data})
+        });
+        if(localStorage.getItem("username")){ // If there's no username stored, the UI will look weird anyway.
+            Planet.ServerInterface.getLoggedInValues(data=> {
+                console.log(data);
+                if(data.success){
+                    document.getElementById("publish-username").value = localStorage.getItem("username");
+                    document.getElementById("publish-username").disabled = true;
+                    document.getElementById("publish-group").value = data.data.groupID;
+                    document.getElementById("publish-group").disabled = true;
+                    document.getElementById("publish-secret").style.display = "none";
+                    document.getElementById("publish-secret-label").style.display = "none";
+                } else {
+                    document.getElementById("publish-username").value = "";
+                    document.getElementById("publish-username").disabled = false;
+                    document.getElementById("publish-group").value = "";
+                    document.getElementById("publish-group").disabled = false;
+                    document.getElementById("publish-secret").style.display = "block";
+                    document.getElementById("publish-secret-label").style.display = "block";
+                }
+                Materialize.updateTextFields();
+            })
+        }
+
         if (Planet.ConnectedToServer) {
             document.getElementById('publish-description').value = description;
             document.getElementById('publish-description-label').setAttribute('data-error', '');
@@ -206,6 +232,12 @@ function Publisher(Planet) {
             submitobj.ProjectIsMusicBlocks = (Planet.IsMusicBlocks ? 1 : 0);
             submitobj.ProjectCreatorName = Planet.ProjectStorage.getDefaultCreatorName();
             submitobj.ProjectTags = this.getTags();
+            let userObj = {};
+            userObj.username = document.getElementById("publish-username").value;
+            if(userObj.username){
+                userObj.group = document.getElementById("publish-group").value;
+                userObj.password = document.getElementById("publish-secret").value;
+            } else userObj = null;
             var send = JSON.stringify(submitobj);
             var published = {};
             published.ProjectDescription = description.value;
@@ -219,7 +251,7 @@ function Publisher(Planet) {
               document.getElementById('publisher-form').getElementsByTagName("TEXTAREA")[i].style.cursor = 'wait';
             }
             document.body.style.cursor = 'wait';
-            Planet.ServerInterface.addProject(send, function(data) {
+            Planet.ServerInterface.addProject(send, userObj, function(data) {
                 this.afterPublishProject(data, id, title.value, published);
             }.bind(this));
         }
